@@ -215,7 +215,7 @@ const App: React.FC = () => {
     const feet = Math.floor(inches / 12);
     const remInches = inches % 12;
     const cm = Math.round(inches * 2.54);
-    return `${feet}'${remInches}\" (${cm} cm)`;
+    return `${feet}'${remInches}" (${cm} cm)`;
   };
 
   // Helper to calculate age from date string
