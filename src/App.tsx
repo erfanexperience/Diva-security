@@ -134,16 +134,29 @@ const App: React.FC = () => {
     BAL: 'Bald', BLK: 'Black', BLN: 'Blonde', BRO: 'Brown', GRY: 'Gray', RED: 'Red/Auburn', SDY: 'Sandy', WHI: 'White', UNK: 'Unknown'
   };
 
-  // Full Name logic
+  // Helper to check if a name part is valid (add more as needed)
+  const isValidNamePart = (part: string) => {
+    if (!part) return false;
+    const invalids = [
+      'NONE', 'NONED', 'NONEDD', 'NONEDDGN', 'NONEDGN', 'U', 'UDDGU', 'N', 'UN', 'UNKNWN', 'UNKNOWN'
+    ];
+    return !invalids.includes(part.trim().toUpperCase());
+  };
+
+  // Improved Full Name logic
   const getFullName = () => {
-    if (parsedData['Full Name']) return capitalizeName(parsedData['Full Name']);
-    const nameParts = [];
-    if (isValidNamePart(parsedData['Name Prefix'])) nameParts.push(parsedData['Name Prefix']);
-    if (isValidNamePart(parsedData['First Name'])) nameParts.push(parsedData['First Name']);
-    if (isValidNamePart(parsedData['Middle Name'])) nameParts.push(parsedData['Middle Name']);
-    if (isValidNamePart(parsedData['Last Name'])) nameParts.push(parsedData['Last Name']);
-    if (isValidNamePart(parsedData['Name Suffix'])) nameParts.push(parsedData['Name Suffix']);
-    return nameParts.length > 0 ? capitalizeName(nameParts.join(' ')) : 'N/A';
+    // Prefer DAA (Full Name) if present and valid
+    if (parsedData['Full Name'] && isValidNamePart(parsedData['Full Name'])) {
+      return capitalizeName(parsedData['Full Name']);
+    }
+    // Otherwise, use only valid First and Last Name
+    const first = isValidNamePart(parsedData['First Name']) ? parsedData['First Name'] : '';
+    const last = isValidNamePart(parsedData['Last Name']) ? parsedData['Last Name'] : '';
+    if (first && last) return capitalizeName(`${first} ${last}`);
+    if (first) return capitalizeName(first);
+    if (last) return capitalizeName(last);
+    // Optionally, include valid prefix/suffix/middle if you want, but only if they're not junk
+    return '';
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -179,13 +192,6 @@ const App: React.FC = () => {
   const formatGender = (gender: string): string => {
     if (!gender || gender === 'NONE') return 'N/A';
     return gender === '1' ? 'Male' : gender === '2' ? 'Female' : gender;
-  };
-
-  // Helper to check if a name part is valid
-  const isValidNamePart = (part: string) => {
-    if (!part) return false;
-    const invalids = ['NONE', 'NONEDDGN', 'N', 'NONED', 'NONEDD', 'NONEDDGN', 'NONEDGN'];
-    return !invalids.includes(part.trim().toUpperCase());
   };
 
   // Helper to format ZIP code
@@ -269,7 +275,6 @@ const App: React.FC = () => {
       <div className="LoginScreen">
         <form className="LoginForm" onSubmit={handleLogin}>
           <img src={logo} alt="Logo" className="login-logo" />
-          <h2>Login</h2>
           <label htmlFor="password">Password:</label>
           <input
             id="password"
