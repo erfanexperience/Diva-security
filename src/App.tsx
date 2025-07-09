@@ -165,6 +165,21 @@ const App: React.FC = () => {
     return '';
   };
 
+  // Helper to get full name from a scan row
+  const getRowFullName = (row: any) => {
+    if (!row || !row.data) return '';
+    // Use the same logic as getFullName but for row.data
+    if (row.data['Full Name'] && isValidNamePart(row.data['Full Name'])) {
+      return capitalizeName(row.data['Full Name']);
+    }
+    const first = isValidNamePart(row.data['First Name']) ? row.data['First Name'] : '';
+    const last = isValidNamePart(row.data['Last Name']) ? row.data['Last Name'] : '';
+    if (first && last) return capitalizeName(`${first} ${last}`);
+    if (first) return capitalizeName(first);
+    if (last) return capitalizeName(last);
+    return '';
+  };
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
@@ -323,6 +338,22 @@ const App: React.FC = () => {
     }
   };
 
+  // Delete all scans
+  const deleteAllScans = async () => {
+    const password = window.prompt('Enter password to delete all history:');
+    if (password !== PASSWORD) {
+      alert('Incorrect password.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete ALL history? This cannot be undone.')) return;
+    try {
+      await axios.delete(`${BACKEND_URL}/api/history`);
+      fetchHistory(historySort);
+    } catch (err) {
+      alert('Failed to delete all records.');
+    }
+  };
+
   if (!authenticated) {
     return (
       <div className="LoginScreen">
@@ -432,6 +463,7 @@ const App: React.FC = () => {
                 <option value="desc">Newest First</option>
                 <option value="asc">Oldest First</option>
               </select>
+              <button className="history-action-btn" style={{marginLeft: '2rem'}} onClick={deleteAllScans}>Delete All</button>
             </div>
             <div className="history-table-wrapper">
               <table className="history-table">
@@ -448,7 +480,7 @@ const App: React.FC = () => {
                   {history.map((row, idx) => (
                     <tr key={row.id || idx}>
                       <td>{row.scanned_at ? new Date(row.scanned_at).toLocaleString() : ''}</td>
-                      <td>{row.data && row.data['Full Name'] ? row.data['Full Name'] : ''}</td>
+                      <td>{getRowFullName(row)}</td>
                       <td>{row.data && row.data['Document Number'] ? row.data['Document Number'] : ''}</td>
                       <td>{row.data && row.data['Date of Birth'] ? row.data['Date of Birth'] : ''}</td>
                       <td>

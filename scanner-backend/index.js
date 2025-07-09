@@ -57,6 +57,16 @@ app.delete('/api/history/:id', async (req, res) => {
   }
 });
 
+// Delete all scans
+app.delete('/api/history', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM scan_history');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/', (req, res) => {
   res.send('Backend is running!');
 });
