@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import logo from './Assests/logo.png';
 import axios from 'axios';
@@ -55,7 +55,10 @@ const App: React.FC = () => {
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
-  const [lastSavedScan, setLastSavedScan] = useState<string>(''); // Track last saved scan to prevent duplicates
+  
+  // Add debounce refs
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedDataRef = useRef<string>('');
 
   useEffect(() => {
     if (!authenticated && passwordRef.current) {
@@ -181,47 +184,72 @@ const App: React.FC = () => {
     return '';
   };
 
+  // Check if the parsed data represents a complete/valid scan
+  const isCompleteScan = useCallback((data: ParsedData): boolean => {
+    // Must have at least a document number and some personal info
+    const hasDocumentNumber = Boolean(data['Document Number'] && data['Document Number'].trim().length > 0);
+    const hasPersonalInfo = Boolean(
+      (data['Full Name'] && data['Full Name'].trim().length > 0) ||
+      (data['First Name'] && data['First Name'].trim().length > 0) ||
+      (data['Last Name'] && data['Last Name'].trim().length > 0)
+    );
+    
+    return hasDocumentNumber && hasPersonalInfo;
+  }, []);
+
+  // Create a stable hash of the parsed data to detect changes
+  const getDataHash = useCallback((data: ParsedData): string => {
+    const sortedKeys = Object.keys(data).sort();
+    return sortedKeys.map(key => `${key}:${data[key]}`).join('|');
+  }, []);
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
     
-    // Check if text contains carriage return (complete scan)
-    if (text.includes('\r') || text.includes('\n')) {
-      // Remove carriage return/line break for parsing
-      const cleanText = text.replace(/[\r\n]/g, '').trim();
-      if (cleanText) {
-        const parsed = parseBarcode(cleanText);
-        setParsedData(parsed);
-        
-        // Check if this is a complete scan with required fields
-        const isCompleteScan = parsed['Document Number'] && 
-                              (parsed['Full Name'] || (parsed['First Name'] && parsed['Last Name'])) &&
-                              parsed['Date of Birth'];
-        
-        if (isCompleteScan) {
-          // Create a unique identifier for this scan to prevent duplicates
-          const scanId = `${parsed['Document Number']}_${parsed['Date of Birth']}_${parsed['Full Name'] || parsed['First Name'] || ''}`;
-          
-          if (scanId !== lastSavedScan) {
-            saveScan(parsed);
-            setLastSavedScan(scanId);
-          }
-          
-          // Clear the input after successful scan
-          setTimeout(() => {
-            setBarcodeText('');
-            setParsedData({});
-          }, 100);
-        }
-      }
-    } else if (text.trim()) {
-      // For real-time parsing without saving (for display purposes)
+    if (text.trim()) {
       const parsed = parseBarcode(text);
       setParsedData(parsed);
     } else {
       setParsedData({});
     }
   };
+
+  // Debounced save function
+  const debouncedSave = useCallback((data: ParsedData) => {
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Create a hash of the current data
+    const dataHash = getDataHash(data);
+    
+    // Only save if this is a complete scan and the data has actually changed
+    if (isCompleteScan(data) && dataHash !== lastSavedDataRef.current) {
+      // Set a timeout to save after 1 second of no changes
+      saveTimeoutRef.current = setTimeout(() => {
+        saveScan(data);
+        lastSavedDataRef.current = dataHash;
+      }, 1000); // Wait 1 second after last change
+    }
+  }, [isCompleteScan, getDataHash]);
+
+  // Watch for changes in parsedData and trigger debounced save
+  useEffect(() => {
+    if (Object.keys(parsedData).length > 0) {
+      debouncedSave(parsedData);
+    }
+  }, [parsedData, debouncedSave]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatDate = (dateStr: string): string => {
     if (!dateStr || dateStr === 'NONE') return 'N/A';
@@ -343,8 +371,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Removed the problematic useEffect that was saving on every parsedData change
-  // Now saving is handled in handleTextChange when a complete scan is detected
+
 
   // Fetch history when switching to history tab or sort changes
   useEffect(() => {
