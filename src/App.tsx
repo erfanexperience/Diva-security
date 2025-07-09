@@ -55,6 +55,7 @@ const App: React.FC = () => {
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
+  const [lastSavedScan, setLastSavedScan] = useState<string>(''); // Track last saved scan to prevent duplicates
 
   useEffect(() => {
     if (!authenticated && passwordRef.current) {
@@ -183,7 +184,38 @@ const App: React.FC = () => {
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
-    if (text.trim()) {
+    
+    // Check if text contains carriage return (complete scan)
+    if (text.includes('\r') || text.includes('\n')) {
+      // Remove carriage return/line break for parsing
+      const cleanText = text.replace(/[\r\n]/g, '').trim();
+      if (cleanText) {
+        const parsed = parseBarcode(cleanText);
+        setParsedData(parsed);
+        
+        // Check if this is a complete scan with required fields
+        const isCompleteScan = parsed['Document Number'] && 
+                              (parsed['Full Name'] || (parsed['First Name'] && parsed['Last Name'])) &&
+                              parsed['Date of Birth'];
+        
+        if (isCompleteScan) {
+          // Create a unique identifier for this scan to prevent duplicates
+          const scanId = `${parsed['Document Number']}_${parsed['Date of Birth']}_${parsed['Full Name'] || parsed['First Name'] || ''}`;
+          
+          if (scanId !== lastSavedScan) {
+            saveScan(parsed);
+            setLastSavedScan(scanId);
+          }
+          
+          // Clear the input after successful scan
+          setTimeout(() => {
+            setBarcodeText('');
+            setParsedData({});
+          }, 100);
+        }
+      }
+    } else if (text.trim()) {
+      // For real-time parsing without saving (for display purposes)
       const parsed = parseBarcode(text);
       setParsedData(parsed);
     } else {
@@ -311,13 +343,8 @@ const App: React.FC = () => {
     }
   };
 
-  // On scan, save to backend
-  useEffect(() => {
-    if (Object.keys(parsedData).length > 0) {
-      saveScan(parsedData);
-    }
-    // eslint-disable-next-line
-  }, [parsedData]);
+  // Removed the problematic useEffect that was saving on every parsedData change
+  // Now saving is handled in handleTextChange when a complete scan is detected
 
   // Fetch history when switching to history tab or sort changes
   useEffect(() => {
