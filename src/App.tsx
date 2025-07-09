@@ -436,7 +436,7 @@ const App: React.FC = () => {
                       <td>{row.scanned_at ? new Date(row.scanned_at).toLocaleString() : ''}</td>
                       <td>{row.data && row.data['Full Name'] ? row.data['Full Name'] : ''}</td>
                       <td>{row.data && row.data['Document-Number'] ? row.data['Document Number'] : ''}</td>
-                      <td>{row.data && row.data['Birth Date'] ? row.data['Date of Birth'] : ''}</td>
+                      <td>{row.data && row.data['Date of Birth'] ? row.data['Date of Birth'] : ''}</td>
                     </tr>
                   ))}
                 </tbody>
