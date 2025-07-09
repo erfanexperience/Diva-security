@@ -46,6 +46,17 @@ app.get('/api/history', async (req, res) => {
   }
 });
 
+// Delete a scan
+app.delete('/api/history/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM scan_history WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/', (req, res) => {
   res.send('Backend is running!');
 });

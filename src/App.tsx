@@ -53,6 +53,8 @@ const App: React.FC = () => {
   const passwordRef = useRef<HTMLInputElement>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState<any>(null);
 
   useEffect(() => {
     if (!authenticated && passwordRef.current) {
@@ -310,6 +312,17 @@ const App: React.FC = () => {
     // eslint-disable-next-line
   }, [nav, historySort]);
 
+  // Delete a scan
+  const deleteScan = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this record?')) return;
+    try {
+      await axios.delete(`${BACKEND_URL}/api/history/${id}`);
+      fetchHistory(historySort);
+    } catch (err) {
+      alert('Failed to delete record.');
+    }
+  };
+
   if (!authenticated) {
     return (
       <div className="LoginScreen">
@@ -428,6 +441,7 @@ const App: React.FC = () => {
                     <th>Full Name</th>
                     <th>Document Number</th>
                     <th>Birth Date</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -435,13 +449,33 @@ const App: React.FC = () => {
                     <tr key={row.id || idx}>
                       <td>{row.scanned_at ? new Date(row.scanned_at).toLocaleString() : ''}</td>
                       <td>{row.data && row.data['Full Name'] ? row.data['Full Name'] : ''}</td>
-                      <td>{row.data && row.data['Document-Number'] ? row.data['Document Number'] : ''}</td>
+                      <td>{row.data && row.data['Document Number'] ? row.data['Document Number'] : ''}</td>
                       <td>{row.data && row.data['Date of Birth'] ? row.data['Date of Birth'] : ''}</td>
+                      <td>
+                        <button className="history-action-btn" onClick={() => { setModalData(row); setModalOpen(true); }}>Open</button>
+                        <button className="history-action-btn" onClick={() => deleteScan(row.id)}>Delete</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {modalOpen && modalData && (
+              <div className="history-modal-overlay" onClick={() => setModalOpen(false)}>
+                <div className="history-modal" onClick={e => e.stopPropagation()}>
+                  <button className="history-modal-close" onClick={() => setModalOpen(false)}>&times;</button>
+                  <div className="history-modal-title">{modalData.data['Full Name'] || 'Details'}</div>
+                  <div className="history-modal-details">
+                    {Object.entries(modalData.data).map(([key, value]) => (
+                      <div className="detail-row" key={key}>
+                        <span className="detail-label">{key}:</span>
+                        <span className="detail-value">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

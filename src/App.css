@@ -401,3 +401,114 @@ body {
   width: 100%;
   text-align: center;
 }
+
+.history-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 1.5rem;
+}
+.history-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.5rem;
+  font-size: 1.08rem;
+  background: transparent;
+}
+.history-table th, .history-table td {
+  padding: 0.7rem 1.2rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  text-align: left;
+}
+.history-table th {
+  background: #e0e7ef;
+  font-weight: 700;
+  color: #4a3fa3;
+  font-size: 1.1rem;
+}
+.history-table tr {
+  transition: box-shadow 0.2s, background 0.2s;
+}
+.history-table tr:hover td {
+  background: #e6eaff;
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.08);
+}
+.history-action-btn {
+  background: #667eea;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.3rem 0.9rem;
+  margin-right: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.history-action-btn:last-child {
+  margin-right: 0;
+}
+.history-action-btn:hover {
+  background: #4a3fa3;
+}
+
+/* Modal styles */
+.history-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.history-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 2.5rem 2.5rem 2rem 2.5rem;
+  min-width: 340px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+.history-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #667eea;
+  cursor: pointer;
+}
+.history-modal-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #4a3fa3;
+  margin-bottom: 1.2rem;
+}
+.history-modal-details {
+  margin-top: 1rem;
+}
+.history-modal-details .detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+.history-modal-details .detail-row:last-child {
+  border-bottom: none;
+}
+.history-modal-details .detail-label {
+  font-weight: 600;
+  color: #4a5568;
+}
+.history-modal-details .detail-value {
+  color: #2d3748;
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+  flex: 1;
+  margin-left: 1.5rem;
+}
