@@ -469,7 +469,7 @@ const App: React.FC = () => {
                     {Object.entries(modalData.data).map(([key, value]) => (
                       <div className="detail-row" key={key}>
                         <span className="detail-label">{key}:</span>
-                        <span className="detail-value">{value}</span>
+                        <span className="detail-value">{String(value)}</span>
                       </div>
                     ))}
                   </div>
