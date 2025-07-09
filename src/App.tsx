@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import logo from './Assests/logo.png';
+import axios from 'axios';
 
 interface ParsedData {
   [key: string]: string;
@@ -39,6 +40,7 @@ const INFO_FIELDS = [
 ];
 
 const PASSWORD = 'mayaeva3911';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:4000';
 
 const App: React.FC = () => {
   const [barcodeText, setBarcodeText] = useState<string>('');
@@ -49,6 +51,8 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     if (!authenticated && passwordRef.current) {
@@ -270,6 +274,42 @@ const App: React.FC = () => {
     }
   };
 
+  // Fetch history from backend
+  const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/history?sort=${sort}`);
+      setHistory(res.data);
+    } catch (err) {
+      setHistory([]);
+    }
+  };
+
+  // Save scan to backend
+  const saveScan = async (data: any) => {
+    try {
+      await axios.post(`${BACKEND_URL}/api/history`, { data });
+      fetchHistory(historySort);
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  // On scan, save to backend
+  useEffect(() => {
+    if (Object.keys(parsedData).length > 0) {
+      saveScan(parsedData);
+    }
+    // eslint-disable-next-line
+  }, [parsedData]);
+
+  // Fetch history when switching to history tab or sort changes
+  useEffect(() => {
+    if (nav === 'history') {
+      fetchHistory(historySort);
+    }
+    // eslint-disable-next-line
+  }, [nav, historySort]);
+
   if (!authenticated) {
     return (
       <div className="LoginScreen">
@@ -373,7 +413,35 @@ const App: React.FC = () => {
         {nav === 'history' && (
           <div className="HistoryContainer">
             <h2>History</h2>
-            <p>Coming soon...</p>
+            <div className="history-controls">
+              <label>Sort by date: </label>
+              <select value={historySort} onChange={e => setHistorySort(e.target.value as 'asc' | 'desc')}>
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
+            <div className="history-table-wrapper">
+              <table className="history-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Full Name</th>
+                    <th>Document Number</th>
+                    <th>Birth Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((row, idx) => (
+                    <tr key={row.id || idx}>
+                      <td>{row.scanned_at ? new Date(row.scanned_at).toLocaleString() : ''}</td>
+                      <td>{row.data && row.data['Full Name'] ? row.data['Full Name'] : ''}</td>
+                      <td>{row.data && row.data['Document-Number'] ? row.data['Document Number'] : ''}</td>
+                      <td>{row.data && row.data['Birth Date'] ? row.data['Date of Birth'] : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
