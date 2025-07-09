@@ -215,6 +215,37 @@ const App: React.FC = () => {
     }
   };
 
+
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Fetch history from backend
+  const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/history?sort=${sort}`);
+      setHistory(res.data);
+    } catch (err) {
+      setHistory([]);
+    }
+  };
+
+  // Save scan to backend
+  const saveScan = useCallback(async (data: any) => {
+    try {
+      await axios.post(`${BACKEND_URL}/api/history`, { data });
+      fetchHistory(historySort);
+    } catch (err) {
+      // handle error
+    }
+  }, [historySort]);
+
   // Debounced save function
   const debouncedSave = useCallback((data: ParsedData) => {
     // Clear any existing timeout
@@ -233,7 +264,7 @@ const App: React.FC = () => {
         lastSavedDataRef.current = dataHash;
       }, 1000); // Wait 1 second after last change
     }
-  }, [isCompleteScan, getDataHash]);
+  }, [isCompleteScan, getDataHash, saveScan]);
 
   // Watch for changes in parsedData and trigger debounced save
   useEffect(() => {
@@ -241,15 +272,6 @@ const App: React.FC = () => {
       debouncedSave(parsedData);
     }
   }, [parsedData, debouncedSave]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const formatDate = (dateStr: string): string => {
     if (!dateStr || dateStr === 'NONE') return 'N/A';
@@ -350,28 +372,6 @@ const App: React.FC = () => {
       setLoginError('Incorrect password.');
     }
   };
-
-  // Fetch history from backend
-  const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
-    try {
-      const res = await axios.get(`${BACKEND_URL}/api/history?sort=${sort}`);
-      setHistory(res.data);
-    } catch (err) {
-      setHistory([]);
-    }
-  };
-
-  // Save scan to backend
-  const saveScan = async (data: any) => {
-    try {
-      await axios.post(`${BACKEND_URL}/api/history`, { data });
-      fetchHistory(historySort);
-    } catch (err) {
-      // handle error
-    }
-  };
-
-
 
   // Fetch history when switching to history tab or sort changes
   useEffect(() => {
