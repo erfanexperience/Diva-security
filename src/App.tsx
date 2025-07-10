@@ -46,7 +46,7 @@ const App: React.FC = () => {
   const [barcodeText, setBarcodeText] = useState<string>('');
   const [parsedData, setParsedData] = useState<ParsedData>({});
   const [nav, setNav] = useState('scan');
-  const [authenticated, setAuthenticated] = useState(false);
+  const [historyAuthenticated, setHistoryAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -60,14 +60,42 @@ const App: React.FC = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>('');
 
+  // Focus management - keep input focused always
   useEffect(() => {
-    if (!authenticated && passwordRef.current) {
+    const focusInput = () => {
+      if (inputRef.current && nav === 'scan') {
+        inputRef.current.focus();
+      }
+    };
+
+    // Focus on mount and when switching to scan tab
+    focusInput();
+
+    // Focus on any click/touch anywhere on the page
+    const handleClick = () => {
+      setTimeout(focusInput, 0);
+    };
+
+    // Focus on window focus (when switching back to tab)
+    const handleWindowFocus = () => {
+      setTimeout(focusInput, 0);
+    };
+
+    document.addEventListener('click', handleClick);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      document.removeEventListener('click', handleClick);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [nav]);
+
+  // Focus on password input when needed
+  useEffect(() => {
+    if (nav === 'history' && !historyAuthenticated && passwordRef.current) {
       passwordRef.current.focus();
     }
-    if (authenticated && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [authenticated]);
+  }, [nav, historyAuthenticated]);
 
   const parseBarcode = (text: string): ParsedData => {
     const data: ParsedData = {};
@@ -215,17 +243,6 @@ const App: React.FC = () => {
     }
   };
 
-
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
-
   // Fetch history from backend
   const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
     try {
@@ -272,6 +289,15 @@ const App: React.FC = () => {
       debouncedSave(parsedData);
     }
   }, [parsedData, debouncedSave]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatDate = (dateStr: string): string => {
     if (!dateStr || dateStr === 'NONE') return 'N/A';
@@ -362,12 +388,13 @@ const App: React.FC = () => {
     return '';
   };
 
-  // Login handler
-  const handleLogin = (e: React.FormEvent) => {
+  // History login handler
+  const handleHistoryLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordInput === PASSWORD) {
-      setAuthenticated(true);
+      setHistoryAuthenticated(true);
       setLoginError('');
+      setPasswordInput('');
     } else {
       setLoginError('Incorrect password.');
     }
@@ -375,11 +402,10 @@ const App: React.FC = () => {
 
   // Fetch history when switching to history tab or sort changes
   useEffect(() => {
-    if (nav === 'history') {
+    if (nav === 'history' && historyAuthenticated) {
       fetchHistory(historySort);
     }
-    // eslint-disable-next-line
-  }, [nav, historySort]);
+  }, [nav, historySort, historyAuthenticated]);
 
   // Delete a scan
   const deleteScan = async (id: number) => {
@@ -407,28 +433,6 @@ const App: React.FC = () => {
       alert('Failed to delete all records.');
     }
   };
-
-  if (!authenticated) {
-    return (
-      <div className="LoginScreen">
-        <form className="LoginForm" onSubmit={handleLogin}>
-          <img src={logo} alt="Logo" className="login-logo" />
-          <label htmlFor="password">Password:</label>
-          <input
-            id="password"
-            type="password"
-            ref={passwordRef}
-            value={passwordInput}
-            onChange={e => setPasswordInput(e.target.value)}
-            className="login-input"
-            autoComplete="current-password"
-          />
-          {loginError && <div className="login-error">{loginError}</div>}
-          <button type="submit" className="login-btn">Login</button>
-        </form>
-      </div>
-    );
-  }
 
   return (
     <div className="AppLayout">
@@ -510,57 +514,79 @@ const App: React.FC = () => {
         )}
         {nav === 'history' && (
           <div className="HistoryContainer">
-            <h2>History</h2>
-            <div className="history-controls">
-              <label>Sort by date: </label>
-              <select value={historySort} onChange={e => setHistorySort(e.target.value as 'asc' | 'desc')}>
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
-              </select>
-              <button className="history-action-btn" style={{marginLeft: '2rem'}} onClick={deleteAllScans}>Delete All</button>
-            </div>
-            <div className="history-table-wrapper">
-              <table className="history-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Full Name</th>
-                    <th>Document Number</th>
-                    <th>Birth Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((row, idx) => (
-                    <tr key={row.id || idx}>
-                      <td>{row.scanned_at ? new Date(row.scanned_at).toLocaleString() : ''}</td>
-                      <td>{getRowFullName(row)}</td>
-                      <td>{row.data && row.data['Document Number'] ? row.data['Document Number'] : ''}</td>
-                      <td>{row.data && row.data['Date of Birth'] ? row.data['Date of Birth'] : ''}</td>
-                      <td>
-                        <button className="history-action-btn" onClick={() => { setModalData(row); setModalOpen(true); }}>Open</button>
-                        <button className="history-action-btn" onClick={() => deleteScan(row.id)}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {modalOpen && modalData && (
-              <div className="history-modal-overlay" onClick={() => setModalOpen(false)}>
-                <div className="history-modal" onClick={e => e.stopPropagation()}>
-                  <button className="history-modal-close" onClick={() => setModalOpen(false)}>&times;</button>
-                  <div className="history-modal-title">{modalData.data['Full Name'] || 'Details'}</div>
-                  <div className="history-modal-details">
-                    {Object.entries(modalData.data).map(([key, value]) => (
-                      <div className="detail-row" key={key}>
-                        <span className="detail-label">{key}:</span>
-                        <span className="detail-value">{String(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {!historyAuthenticated ? (
+              <div className="LoginScreen">
+                <form className="LoginForm" onSubmit={handleHistoryLogin}>
+                  <img src={logo} alt="Logo" className="login-logo" />
+                  <label htmlFor="password">Enter password to view history:</label>
+                  <input
+                    id="password"
+                    type="password"
+                    ref={passwordRef}
+                    value={passwordInput}
+                    onChange={e => setPasswordInput(e.target.value)}
+                    className="login-input"
+                    autoComplete="current-password"
+                  />
+                  {loginError && <div className="login-error">{loginError}</div>}
+                  <button type="submit" className="login-btn">Login</button>
+                </form>
               </div>
+            ) : (
+              <>
+                <h2>History</h2>
+                <div className="history-controls">
+                  <label>Sort by date: </label>
+                  <select value={historySort} onChange={e => setHistorySort(e.target.value as 'asc' | 'desc')}>
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                  <button className="history-action-btn" style={{marginLeft: '2rem'}} onClick={deleteAllScans}>Delete All</button>
+                </div>
+                <div className="history-table-wrapper">
+                  <table className="history-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Full Name</th>
+                        <th>Document Number</th>
+                        <th>Birth Date</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((row, idx) => (
+                        <tr key={row.id || idx}>
+                          <td>{row.scanned_at ? new Date(row.scanned_at).toLocaleString() : ''}</td>
+                          <td>{getRowFullName(row)}</td>
+                          <td>{row.data && row.data['Document Number'] ? row.data['Document Number'] : ''}</td>
+                          <td>{row.data && row.data['Date of Birth'] ? row.data['Date of Birth'] : ''}</td>
+                          <td>
+                            <button className="history-action-btn" onClick={() => { setModalData(row); setModalOpen(true); }}>Open</button>
+                            <button className="history-action-btn" onClick={() => deleteScan(row.id)}>Delete</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {modalOpen && modalData && (
+                  <div className="history-modal-overlay" onClick={() => setModalOpen(false)}>
+                    <div className="history-modal" onClick={e => e.stopPropagation()}>
+                      <button className="history-modal-close" onClick={() => setModalOpen(false)}>&times;</button>
+                      <div className="history-modal-title">{modalData.data['Full Name'] || 'Details'}</div>
+                      <div className="history-modal-details">
+                        {Object.entries(modalData.data).map(([key, value]) => (
+                          <div className="detail-row" key={key}>
+                            <span className="detail-label">{key}:</span>
+                            <span className="detail-value">{String(value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
