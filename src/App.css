@@ -100,7 +100,6 @@ body {
 }
 
 .results-section {
-  width: 100%;
   background: rgba(255,255,255,0.97);
   border-radius: 18px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.08);
@@ -511,4 +510,174 @@ body {
   word-break: break-word;
   flex: 1;
   margin-left: 1.5rem;
+}
+
+/* Add tablet-specific styles to make results section smaller */
+@media (max-width: 768px) {
+  .results-section {
+    max-height: none;
+    overflow-y: visible;
+    padding: 5px;
+  }
+  
+  .results-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .result-group {
+    padding: 5px;
+    margin-bottom: 5px;
+  }
+  
+  .result-group h3 {
+    font-size: 14px;
+    margin: 5px 0;
+  }
+  
+  .result-item {
+    padding: 2px 0;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .result-item .label {
+    font-weight: 500;
+    min-width: 80px;
+  }
+  
+  .result-item .value {
+    text-align: right;
+    flex: 1;
+    margin-left: 10px;
+  }
+  
+  .person-title {
+    padding: 5px 0;
+    margin-bottom: 5px;
+  }
+  
+  .person-name {
+    font-size: 16px;
+  }
+  
+  .person-age {
+    font-size: 12px;
+  }
+  
+  .ScanContainer {
+    padding: 5px;
+  }
+  
+  .input-section {
+    margin-bottom: 10px;
+  }
+  
+  .barcode-input {
+    font-size: 12px;
+    padding: 5px;
+    height: 60px;
+  }
+  
+  .input-label {
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+}
+
+/* Optimize for 10.1" tablet in horizontal mode */
+@media (min-width: 1024px) and (max-width: 1366px) {
+  .results-section {
+    max-height: none;
+    overflow-y: visible;
+    padding: 8px;
+  }
+  
+  .results-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .result-group {
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .result-group h3 {
+    font-size: 16px;
+    margin: 8px 0;
+  }
+  
+  .result-item {
+    padding: 3px 0;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .result-item .label {
+    font-weight: 500;
+    min-width: 100px;
+  }
+  
+  .result-item .value {
+    text-align: right;
+    flex: 1;
+    margin-left: 15px;
+  }
+  
+  .person-title {
+    padding: 8px 0;
+    margin-bottom: 8px;
+  }
+  
+  .person-name {
+    font-size: 18px;
+  }
+  
+  .person-age {
+    font-size: 14px;
+  }
+  
+  .ScanContainer {
+    padding: 10px;
+  }
+  
+  .input-section {
+    margin-bottom: 15px;
+  }
+  
+  .barcode-input {
+    font-size: 14px;
+    padding: 8px;
+    height: 80px;
+  }
+  
+  .input-label {
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+}
+
+/* Optimize for very small screens */
+@media (max-width: 480px) {
+  .results-section {
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  .result-item {
+    font-size: 11px;
+  }
+  
+  .person-name {
+    font-size: 14px;
+  }
+  
+  .result-group h3 {
+    font-size: 12px;
+  }
 }

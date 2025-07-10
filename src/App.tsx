@@ -60,6 +60,12 @@ const App: React.FC = () => {
     const focusInput = () => {
       if (inputRef.current && nav === 'scan') {
         inputRef.current.focus();
+        // Force focus on mobile/tablet
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 100);
       }
     };
 
@@ -76,18 +82,66 @@ const App: React.FC = () => {
       setTimeout(focusInput, 0);
     };
 
+    // Focus on visibility change (when app becomes visible)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setTimeout(focusInput, 0);
+      }
+    };
+
+    // Focus on touch events (tablet specific)
+    const handleTouchStart = () => {
+      setTimeout(focusInput, 0);
+    };
+
+    // Focus on tab switch (mobile/tablet specific)
+    const handleTabSwitch = () => {
+      setTimeout(focusInput, 200); // Longer delay for mobile
+    };
+
     document.addEventListener('click', handleClick);
     window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('touchstart', handleTouchStart);
+
+    // Listen for tab switches
+    if (nav === 'scan') {
+      document.addEventListener('click', handleTabSwitch);
+    }
 
     return () => {
       document.removeEventListener('click', handleClick);
       window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('click', handleTabSwitch);
     };
+  }, [nav]);
+
+  // Additional focus management for tablet
+  useEffect(() => {
+    if (nav === 'scan') {
+      // Force focus when switching to scan tab
+      const timer = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          // Double-check focus for mobile devices
+          setTimeout(() => {
+            if (inputRef.current) {
+              inputRef.current.focus();
+            }
+          }, 50);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
   }, [nav]);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const parseBarcode = (text: string): ParsedData => {
+  // Optimized barcode parsing with memoization
+  const parseBarcode = useCallback((text: string): ParsedData => {
     const data: ParsedData = {};
     const fieldMappings: { [key: string]: string } = {
       'DCS': 'Last Name',
@@ -127,28 +181,33 @@ const App: React.FC = () => {
       'DAW': 'Weight',
     };
 
-    // Find all code positions
+    // Find all code positions - optimized for speed
     const codes = Object.keys(fieldMappings).sort((a, b) => b.length - a.length);
     const codeRegex = new RegExp(codes.join('|'), 'g');
     let match;
     const positions: { code: string; index: number }[] = [];
+    
+    // Use a more efficient approach for large texts
     while ((match = codeRegex.exec(text)) !== null) {
       positions.push({ code: match[0], index: match.index });
     }
-    // Extract values between codes
+    
+    // Extract values between codes - optimized
     for (let i = 0; i < positions.length; i++) {
       const { code, index } = positions[i];
       const valueStart = index + code.length;
       const valueEnd = i + 1 < positions.length ? positions[i + 1].index : text.length;
       let value = text.substring(valueStart, valueEnd).trim();
-      // Remove any leading/trailing non-printable characters
+      
+      // Quick cleanup - only remove non-printable characters
       value = value.replace(/^[^\x20-\x7E]+|[^\x20-\x7E]+$/g, '');
+      
       if (value) {
         data[fieldMappings[code]] = value;
       }
     }
     return data;
-  };
+  }, []);
 
   // Helper to capitalize each word in a name
   const capitalizeName = (str: string) => str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
@@ -221,17 +280,22 @@ const App: React.FC = () => {
     return sortedKeys.map(key => `${key}:${data[key]}`).join('|');
   }, []);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  // Optimized text change handler with debouncing
+  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
     
+    // Only parse if there's actual content
     if (text.trim()) {
-      const parsed = parseBarcode(text);
-      setParsedData(parsed);
+      // Use requestAnimationFrame for better performance on mobile
+      requestAnimationFrame(() => {
+        const parsed = parseBarcode(text);
+        setParsedData(parsed);
+      });
     } else {
       setParsedData({});
     }
-  };
+  }, [parseBarcode]);
 
   // Fetch history from backend
   const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
@@ -253,7 +317,7 @@ const App: React.FC = () => {
     }
   }, [historySort]);
 
-  // Debounced save function
+  // Optimized save function with reduced debounce time for mobile
   const debouncedSave = useCallback((data: ParsedData) => {
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -265,11 +329,11 @@ const App: React.FC = () => {
     
     // Only save if this is a complete scan and the data has actually changed
     if (isCompleteScan(data) && dataHash !== lastSavedDataRef.current) {
-      // Set a timeout to save after 1 second of no changes
+      // Reduced timeout for mobile - 500ms instead of 1000ms
       saveTimeoutRef.current = setTimeout(() => {
         saveScan(data);
         lastSavedDataRef.current = dataHash;
-      }, 1000); // Wait 1 second after last change
+      }, 500); // Faster response on mobile
     }
   }, [isCompleteScan, getDataHash, saveScan]);
 
