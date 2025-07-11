@@ -50,7 +50,7 @@ const App: React.FC = () => {
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
-  const [resultsKey, setResultsKey] = useState<number>(0);
+  const [isClearing, setIsClearing] = useState(false);
   
   // Add debounce refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -243,20 +243,28 @@ const App: React.FC = () => {
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
-    
-    // Clear all parsed data and force re-render immediately
-    setParsedData({});
-    setResultsKey(prev => prev + 1);
-    
-    // Only parse if there's actual content
-    if (text.trim()) {
-      // Small delay to ensure UI clears first
-      setTimeout(() => {
-        const parsed = parseBarcode(text);
-        setParsedData(parsed);
-      }, 50);
-    }
   };
+
+  // Handle parsing and clearing with proper timing
+  useEffect(() => {
+    if (barcodeText.trim()) {
+      // Clear all fields first and show clearing state
+      setIsClearing(true);
+      setParsedData({});
+      
+      // Use setTimeout to ensure clearing happens before new data
+      const timer = setTimeout(() => {
+        const parsed = parseBarcode(barcodeText);
+        setParsedData(parsed);
+        setIsClearing(false);
+      }, 50); // Small delay to make clearing visible
+      
+      return () => clearTimeout(timer);
+    } else {
+      setParsedData({});
+      setIsClearing(false);
+    }
+  }, [barcodeText]);
 
   // Fetch history from backend
   const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
@@ -462,7 +470,12 @@ const App: React.FC = () => {
                 rows={4}
               />
             </div>
-            <div className="results-section" key={resultsKey}>
+            <div className="results-section">
+              {isClearing && (
+                <div className="clearing-indicator">
+                  <div className="clearing-text">Processing new scan...</div>
+                </div>
+              )}
               <div className="results-grid">
                 <div className="result-group" key={INFO_FIELDS[0].group}>
                   {/* Title with Full Name and Age - always visible */}
