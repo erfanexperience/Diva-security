@@ -292,6 +292,33 @@ body {
   animation: slideInUp 0.5s ease-out;
 }
 
+/* Clearing indicator styles */
+.clearing-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  color: #667eea;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.clearing-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 @keyframes slideInUp {
   from {
     opacity: 0;
