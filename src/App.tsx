@@ -239,15 +239,30 @@ const App: React.FC = () => {
     return sortedKeys.map(key => `${key}:${data[key]}`).join('|');
   }, []);
 
+  const ALL_FIELD_KEYS = [
+    'Full Name', 'Date of Birth', 'Gender', 'Height', 'Weight', 'Eye Color', 'Hair Color',
+    'Street Address', 'City', 'State', 'ZIP Code',
+    'Document Number', 'Issue Date', 'Expiration Date', 'License Class', 'Restriction Codes',
+    'Endorsement Codes', 'Country'
+    // Add any other fields you want to always check
+  ];
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
-    
+
     if (text.trim()) {
-      const parsed = parseBarcode(text);
+      let parsed = parseBarcode(text);
+      // Ensure all fields are present
+      ALL_FIELD_KEYS.forEach(key => {
+        if (!(key in parsed)) parsed[key] = '';
+      });
       setParsedData(parsed);
     } else {
-      setParsedData({});
+      // Clear all fields
+      const emptyData: ParsedData = {};
+      ALL_FIELD_KEYS.forEach(key => { emptyData[key] = ''; });
+      setParsedData(emptyData);
     }
   };
 
