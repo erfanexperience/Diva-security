@@ -50,100 +50,81 @@ const App: React.FC = () => {
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
-  const [isTablet, setIsTablet] = useState(false);
   
   // Add debounce refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  // Detect device type and screen dimensions
-  useEffect(() => {
-    const checkDevice = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const isTabletDevice = (width >= 768 && width <= 1024) || (height >= 768 && height <= 1024);
-      setIsTablet(isTabletDevice);
-    };
-
-    checkDevice();
-    window.addEventListener('resize', checkDevice);
-    return () => window.removeEventListener('resize', checkDevice);
-  }, []);
-
-  // Enhanced focus management for tablets
-  useEffect(() => {
-    const focusInput = () => {
-      if (inputRef.current && nav === 'scan') {
-        // Use requestAnimationFrame for better performance on tablets
-        requestAnimationFrame(() => {
-          if (inputRef.current) {
-            inputRef.current.focus();
-            // Force focus on tablets
-            if (isTablet) {
-              inputRef.current.click();
-            }
-          }
-        });
-      }
-    };
-
-    // Focus on mount and when switching to scan tab
-    focusInput();
-
-    // Enhanced focus on any click/touch anywhere on the page
-    const handleClick = (e: Event) => {
-      // Don't refocus if clicking on the input itself or its container
-      const target = e.target as HTMLElement;
-      if (target.closest('.input-section') || target.closest('.barcode-input')) {
-        return;
-      }
-      
+  // Optimized focus management for tablet
+  const focusInput = useCallback(() => {
+    if (inputRef.current && nav === 'scan') {
       // Clear any existing focus timeout
       if (focusTimeoutRef.current) {
         clearTimeout(focusTimeoutRef.current);
       }
       
-      // Use shorter timeout for tablets
-      const timeout = isTablet ? 100 : 0;
-      focusTimeoutRef.current = setTimeout(focusInput, timeout);
-    };
-
-    // Enhanced focus on window focus (when switching back to tab)
-    const handleWindowFocus = () => {
-      if (focusTimeoutRef.current) {
-        clearTimeout(focusTimeoutRef.current);
-      }
-      focusTimeoutRef.current = setTimeout(focusInput, isTablet ? 200 : 0);
-    };
-
-    // Focus on tab visibility change (for tablets)
-    const handleVisibilityChange = () => {
-      if (!document.hidden && nav === 'scan') {
-        if (focusTimeoutRef.current) {
-          clearTimeout(focusTimeoutRef.current);
+      // Use a shorter timeout for tablet responsiveness
+      focusTimeoutRef.current = setTimeout(() => {
+        if (inputRef.current && nav === 'scan') {
+          inputRef.current.focus();
+          // Force focus on mobile/tablet
+          inputRef.current.click();
         }
-        focusTimeoutRef.current = setTimeout(focusInput, 300);
+      }, 50);
+    }
+  }, [nav]);
+
+  // Enhanced focus management for tablet
+  useEffect(() => {
+    // Focus on mount and when switching to scan tab
+    focusInput();
+
+    // Focus on any click/touch anywhere on the page
+    const handleClick = (e: Event) => {
+      // Don't refocus if clicking on the input itself or navigation
+      const target = e.target as HTMLElement;
+      if (target.closest('.NavOptions') || target.closest('#barcode-input')) {
+        return;
       }
+      focusInput();
+    };
+
+    // Focus on window focus (when switching back to tab)
+    const handleWindowFocus = () => {
+      focusInput();
+    };
+
+    // Focus on visibility change (when tab becomes visible)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        focusInput();
+      }
+    };
+
+    // Focus on touch events for tablet
+    const handleTouchStart = () => {
+      focusInput();
     };
 
     document.addEventListener('click', handleClick);
+    document.addEventListener('touchstart', handleTouchStart);
     window.addEventListener('focus', handleWindowFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       document.removeEventListener('click', handleClick);
+      document.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (focusTimeoutRef.current) {
         clearTimeout(focusTimeoutRef.current);
       }
     };
-  }, [nav, isTablet]);
+  }, [focusInput]);
 
-  // Optimized parseBarcode function with memoization
+  // Optimized barcode parsing with memoization
   const parseBarcode = useCallback((text: string): ParsedData => {
     const data: ParsedData = {};
     const fieldMappings: { [key: string]: string } = {
@@ -284,11 +265,8 @@ const App: React.FC = () => {
     setBarcodeText(text);
     
     if (text.trim()) {
-      // Use requestAnimationFrame for better performance on tablets
-      requestAnimationFrame(() => {
-        const parsed = parseBarcode(text);
-        setParsedData(parsed);
-      });
+      const parsed = parseBarcode(text);
+      setParsedData(parsed);
     } else {
       setParsedData({});
     }
@@ -314,7 +292,7 @@ const App: React.FC = () => {
     }
   }, [historySort, fetchHistory]);
 
-  // Debounced save function with optimized timing for tablets
+  // Debounced save function with shorter timeout for tablet
   const debouncedSave = useCallback((data: ParsedData) => {
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -326,14 +304,13 @@ const App: React.FC = () => {
     
     // Only save if this is a complete scan and the data has actually changed
     if (isCompleteScan(data) && dataHash !== lastSavedDataRef.current) {
-      // Use shorter timeout for tablets for faster response
-      const timeout = isTablet ? 500 : 1000;
+      // Set a timeout to save after 500ms for faster tablet response
       saveTimeoutRef.current = setTimeout(() => {
         saveScan(data);
         lastSavedDataRef.current = dataHash;
-      }, timeout);
+      }, 500); // Reduced from 1000ms to 500ms for tablet
     }
-  }, [isCompleteScan, getDataHash, saveScan, isTablet]);
+  }, [isCompleteScan, getDataHash, saveScan]);
 
   // Watch for changes in parsedData and trigger debounced save
   useEffect(() => {
@@ -342,7 +319,7 @@ const App: React.FC = () => {
     }
   }, [parsedData, debouncedSave]);
 
-  // Cleanup timeouts on unmount
+  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -479,8 +456,8 @@ const App: React.FC = () => {
   }, [fetchHistory, historySort]);
 
   return (
-    <div className="AppLayout" style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
-      <nav className="NavMenu" style={{ height: '10vh', minHeight: '60px' }}>
+    <div className="AppLayout">
+      <nav className="NavMenu">
         <div className="NavLogo"><img src={logo} alt="Logo" /></div>
         <ul className="NavOptions">
           {NAV_OPTIONS.map(opt => (
@@ -488,10 +465,10 @@ const App: React.FC = () => {
           ))}
         </ul>
       </nav>
-      <main className="MainContent" style={{ height: '90vh', overflow: 'hidden' }}>
+      <main className="MainContent">
         {nav === 'scan' && (
-          <div className="ScanContainer" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div className="input-section" style={{ flex: '0 0 auto', padding: '1rem' }}>
+          <div className="ScanContainer">
+            <div className="input-section">
               <label htmlFor="barcode-input" className="input-label">Barcode Text:</label>
               <textarea
                 id="barcode-input"
@@ -500,12 +477,11 @@ const App: React.FC = () => {
                 onChange={handleTextChange}
                 placeholder="Paste your barcode text here..."
                 className="barcode-input"
-                rows={isTablet ? 3 : 4}
-                style={{ fontSize: isTablet ? '16px' : '14px' }}
+                rows={4}
               />
             </div>
-            <div className="results-section" style={{ flex: '1', overflow: 'auto', padding: '1rem' }}>
-              <div className="results-grid" style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+            <div className="results-section">
+              <div className="results-grid">
                 <div className="result-group" key={INFO_FIELDS[0].group}>
                   {/* Title with Full Name and Age - always visible */}
                   <div className="person-title">
@@ -558,9 +534,9 @@ const App: React.FC = () => {
           </div>
         )}
         {nav === 'history' && (
-          <div className="HistoryContainer" style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="HistoryContainer">
             <h2>History</h2>
-            <div className="history-controls" style={{ flex: '0 0 auto', padding: '1rem' }}>
+            <div className="history-controls">
               <label>Sort by date: </label>
               <select value={historySort} onChange={e => setHistorySort(e.target.value as 'asc' | 'desc')}>
                 <option value="desc">Newest First</option>
@@ -568,7 +544,7 @@ const App: React.FC = () => {
               </select>
               <button className="history-action-btn" style={{marginLeft: '2rem'}} onClick={deleteAllScans}>Delete All</button>
             </div>
-            <div className="history-table-wrapper" style={{ flex: '1', overflow: 'auto' }}>
+            <div className="history-table-wrapper">
               <table className="history-table">
                 <thead>
                   <tr>
