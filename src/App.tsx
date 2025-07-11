@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './App.css';
 import logo from './Assests/logo.png';
 import axios from 'axios';
@@ -54,16 +54,25 @@ const App: React.FC = () => {
   // Add debounce refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>('');
+  const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Focus management - keep input focused always
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Enhanced focus management for tablets
   useEffect(() => {
     const focusInput = () => {
       if (inputRef.current && nav === 'scan') {
-        inputRef.current.focus();
-        // Force focus on mobile/tablet
-        setTimeout(() => {
+        // Clear any existing focus timeout
+        if (focusTimeoutRef.current) {
+          clearTimeout(focusTimeoutRef.current);
+        }
+        
+        // Use a longer delay for tablets to ensure proper focus
+        focusTimeoutRef.current = setTimeout(() => {
           if (inputRef.current) {
             inputRef.current.focus();
+            // Force focus on tablets
+            inputRef.current.click();
           }
         }, 100);
       }
@@ -73,7 +82,11 @@ const App: React.FC = () => {
     focusInput();
 
     // Focus on any click/touch anywhere on the page
-    const handleClick = () => {
+    const handleClick = (e: Event) => {
+      // Don't refocus if clicking on the input itself or its children
+      if (e.target && inputRef.current && inputRef.current.contains(e.target as Node)) {
+        return;
+      }
       setTimeout(focusInput, 0);
     };
 
@@ -89,58 +102,21 @@ const App: React.FC = () => {
       }
     };
 
-    // Focus on touch events (tablet specific)
-    const handleTouchStart = () => {
-      setTimeout(focusInput, 0);
-    };
-
-    // Focus on tab switch (mobile/tablet specific)
-    const handleTabSwitch = () => {
-      setTimeout(focusInput, 200); // Longer delay for mobile
-    };
-
     document.addEventListener('click', handleClick);
     window.addEventListener('focus', handleWindowFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    document.addEventListener('touchstart', handleTouchStart);
-
-    // Listen for tab switches
-    if (nav === 'scan') {
-      document.addEventListener('click', handleTabSwitch);
-    }
 
     return () => {
       document.removeEventListener('click', handleClick);
       window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('click', handleTabSwitch);
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
     };
   }, [nav]);
 
-  // Additional focus management for tablet
-  useEffect(() => {
-    if (nav === 'scan') {
-      // Force focus when switching to scan tab
-      const timer = setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
-          // Double-check focus for mobile devices
-          setTimeout(() => {
-            if (inputRef.current) {
-              inputRef.current.focus();
-            }
-          }, 50);
-        }
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [nav]);
-
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  // Optimized barcode parsing with memoization
+  // Memoized parse function for better performance
   const parseBarcode = useCallback((text: string): ParsedData => {
     const data: ParsedData = {};
     const fieldMappings: { [key: string]: string } = {
@@ -181,27 +157,22 @@ const App: React.FC = () => {
       'DAW': 'Weight',
     };
 
-    // Find all code positions - optimized for speed
+    // Find all code positions
     const codes = Object.keys(fieldMappings).sort((a, b) => b.length - a.length);
     const codeRegex = new RegExp(codes.join('|'), 'g');
     let match;
     const positions: { code: string; index: number }[] = [];
-    
-    // Use a more efficient approach for large texts
     while ((match = codeRegex.exec(text)) !== null) {
       positions.push({ code: match[0], index: match.index });
     }
-    
-    // Extract values between codes - optimized
+    // Extract values between codes
     for (let i = 0; i < positions.length; i++) {
       const { code, index } = positions[i];
       const valueStart = index + code.length;
       const valueEnd = i + 1 < positions.length ? positions[i + 1].index : text.length;
       let value = text.substring(valueStart, valueEnd).trim();
-      
-      // Quick cleanup - only remove non-printable characters
+      // Remove any leading/trailing non-printable characters
       value = value.replace(/^[^\x20-\x7E]+|[^\x20-\x7E]+$/g, '');
-      
       if (value) {
         data[fieldMappings[code]] = value;
       }
@@ -210,7 +181,7 @@ const App: React.FC = () => {
   }, []);
 
   // Helper to capitalize each word in a name
-  const capitalizeName = (str: string) => str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+  const capitalizeName = useCallback((str: string) => str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()), []);
 
   // Eye color code mapping
   const eyeColorMap: { [key: string]: string } = {
@@ -222,16 +193,16 @@ const App: React.FC = () => {
   };
 
   // Helper to check if a name part is valid (add more as needed)
-  const isValidNamePart = (part: string) => {
+  const isValidNamePart = useCallback((part: string) => {
     if (!part) return false;
     const invalids = [
       'NONE', 'NONED', 'NONEDD', 'NONEDDGN', 'NONEDGN', 'U', 'UDDGU', 'N', 'UN', 'UNKNWN', 'UNKNOWN'
     ];
     return !invalids.includes(part.trim().toUpperCase());
-  };
+  }, []);
 
-  // Improved Full Name logic
-  const getFullName = () => {
+  // Improved Full Name logic - memoized for performance
+  const getFullName = useMemo(() => {
     // Prefer DAA (Full Name) if present and valid
     if (parsedData['Full Name'] && isValidNamePart(parsedData['Full Name'])) {
       return capitalizeName(parsedData['Full Name']);
@@ -244,10 +215,10 @@ const App: React.FC = () => {
     if (last) return capitalizeName(last);
     // Optionally, include valid prefix/suffix/middle if you want, but only if they're not junk
     return '';
-  };
+  }, [parsedData, isValidNamePart, capitalizeName]);
 
   // Helper to get full name from a scan row
-  const getRowFullName = (row: any) => {
+  const getRowFullName = useCallback((row: any) => {
     if (!row || !row.data) return '';
     // Use the same logic as getFullName but for row.data
     if (row.data['Full Name'] && isValidNamePart(row.data['Full Name'])) {
@@ -259,7 +230,7 @@ const App: React.FC = () => {
     if (first) return capitalizeName(first);
     if (last) return capitalizeName(last);
     return '';
-  };
+  }, [isValidNamePart, capitalizeName]);
 
   // Check if the parsed data represents a complete/valid scan
   const isCompleteScan = useCallback((data: ParsedData): boolean => {
@@ -280,22 +251,17 @@ const App: React.FC = () => {
     return sortedKeys.map(key => `${key}:${data[key]}`).join('|');
   }, []);
 
-  // Optimized text change handler with debouncing
-  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
     
-    // Only parse if there's actual content
     if (text.trim()) {
-      // Use requestAnimationFrame for better performance on mobile
-      requestAnimationFrame(() => {
-        const parsed = parseBarcode(text);
-        setParsedData(parsed);
-      });
+      const parsed = parseBarcode(text);
+      setParsedData(parsed);
     } else {
       setParsedData({});
     }
-  }, [parseBarcode]);
+  };
 
   // Fetch history from backend
   const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
@@ -317,7 +283,7 @@ const App: React.FC = () => {
     }
   }, [historySort]);
 
-  // Optimized save function with reduced debounce time for mobile
+  // Debounced save function
   const debouncedSave = useCallback((data: ParsedData) => {
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -329,11 +295,11 @@ const App: React.FC = () => {
     
     // Only save if this is a complete scan and the data has actually changed
     if (isCompleteScan(data) && dataHash !== lastSavedDataRef.current) {
-      // Reduced timeout for mobile - 500ms instead of 1000ms
+      // Set a timeout to save after 1 second of no changes
       saveTimeoutRef.current = setTimeout(() => {
         saveScan(data);
         lastSavedDataRef.current = dataHash;
-      }, 500); // Faster response on mobile
+      }, 1000); // Wait 1 second after last change
     }
   }, [isCompleteScan, getDataHash, saveScan]);
 
@@ -350,10 +316,14 @@ const App: React.FC = () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
     };
   }, []);
 
-  const formatDate = (dateStr: string): string => {
+  // Memoized formatting functions for better performance
+  const formatDate = useCallback((dateStr: string): string => {
     if (!dateStr || dateStr === 'NONE') return 'N/A';
     
     // Handle MM/DD/YYYY format
@@ -370,15 +340,15 @@ const App: React.FC = () => {
     }
     
     return dateStr;
-  };
+  }, []);
 
-  const formatGender = (gender: string): string => {
+  const formatGender = useCallback((gender: string): string => {
     if (!gender || gender === 'NONE') return 'N/A';
     return gender === '1' ? 'Male' : gender === '2' ? 'Female' : gender;
-  };
+  }, []);
 
   // Helper to format ZIP code
-  const formatZip = (zip: string | undefined) => {
+  const formatZip = useCallback((zip: string | undefined) => {
     if (!zip) return 'N/A';
     // Remove non-digit characters
     const digits = zip.replace(/\D/g, '');
@@ -391,10 +361,10 @@ const App: React.FC = () => {
       return digits.substring(0, 5).replace(/0+$/, '');
     }
     return digits || 'N/A';
-  };
+  }, []);
 
   // Helper to format height
-  const formatHeight = (height: string | undefined) => {
+  const formatHeight = useCallback((height: string | undefined) => {
     if (!height) return 'N/A';
     // Extract number of inches
     const match = height.match(/(\d{2,3})/);
@@ -405,10 +375,10 @@ const App: React.FC = () => {
     const remInches = inches % 12;
     const cm = Math.round(inches * 2.54);
     return `${feet}'${remInches}" (${cm} cm)`;
-  };
+  }, []);
 
   // Helper to calculate age from date string
-  const getAge = (dob: string | undefined) => {
+  const getAge = useCallback((dob: string | undefined) => {
     if (!dob) return '';
     // Try to parse MM/DD/YYYY or MMDDYYYY
     let parts;
@@ -440,7 +410,7 @@ const App: React.FC = () => {
       return age.toString();
     }
     return '';
-  };
+  }, []);
 
   // Fetch history when switching to history tab or sort changes
   useEffect(() => {
@@ -506,7 +476,7 @@ const App: React.FC = () => {
                 <div className="result-group" key={INFO_FIELDS[0].group}>
                   {/* Title with Full Name and Age - always visible */}
                   <div className="person-title">
-                    <span className="person-name">{getFullName() !== 'N/A' ? getFullName() : 'Customer Name'}</span>
+                    <span className="person-name">{getFullName !== 'N/A' ? getFullName : 'Customer Name'}</span>
                     <span className="person-age">Age: {getAge(parsedData['Date of Birth']) || 'N/A'}</span>
                   </div>
                   <h3>{INFO_FIELDS[0].group}</h3>
@@ -514,7 +484,7 @@ const App: React.FC = () => {
                     <div className="result-item" key={field.key}>
                       <span className="label">{field.label}:</span>
                       <span className="value">
-                        {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : '' :
+                        {field.key === 'Full Name' ? getFullName !== 'N/A' ? getFullName : '' :
                          field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : '') :
                          field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : '') :
                          field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : '') :
@@ -535,7 +505,7 @@ const App: React.FC = () => {
                       <div className="result-item" key={field.key}>
                         <span className="label">{field.label}:</span>
                         <span className="value">
-                          {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : '' :
+                          {field.key === 'Full Name' ? getFullName !== 'N/A' ? getFullName : '' :
                            field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : '') :
                            field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : '') :
                            field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : '') :
