@@ -244,8 +244,14 @@ const App: React.FC = () => {
     setBarcodeText(text);
     
     if (text.trim()) {
-      const parsed = parseBarcode(text);
-      setParsedData(parsed);
+      // Clear previous scan data first
+      setParsedData({});
+      
+      // Small delay to show the clearing effect, then parse new data
+      setTimeout(() => {
+        const parsed = parseBarcode(text);
+        setParsedData(parsed);
+      }, 100);
     } else {
       setParsedData({});
     }
