@@ -145,6 +145,21 @@ const App: React.FC = () => {
       'DAW': 'Weight',
     };
 
+    // Initialize all expected fields with "N/A"
+    const allExpectedFields = [
+      'Last Name', 'First Name', 'Middle Name', 'Name Suffix', 'Name Prefix', 'Full Name',
+      'Document Number', 'Expiration Date', 'Issue Date', 'Date of Birth',
+      'Unique Document Identifier', 'Document Issue Timestamp', 'Compliance Type', 'Issue Type',
+      'Street Address', 'City', 'State', 'ZIP Code', 'Gender', 'Height', 'Weight',
+      'Eye Color', 'Hair Color', 'License Class', 'Restriction Codes', 'Endorsement Codes', 'Country',
+      'Inventory Control Number', 'Optional Tracking Field',
+      'Jurisdiction-Specific Field A', 'Jurisdiction-Specific Field B', 'Jurisdiction-Specific Field C', 'Jurisdiction-Specific Field D'
+    ];
+    
+    allExpectedFields.forEach(field => {
+      data[field] = 'N/A';
+    });
+
     // Find all code positions
     const codes = Object.keys(fieldMappings).sort((a, b) => b.length - a.length);
     const codeRegex = new RegExp(codes.join('|'), 'g');
