@@ -145,21 +145,6 @@ const App: React.FC = () => {
       'DAW': 'Weight',
     };
 
-    // Initialize all expected fields with "N/A"
-    const allExpectedFields = [
-      'Last Name', 'First Name', 'Middle Name', 'Name Suffix', 'Name Prefix', 'Full Name',
-      'Document Number', 'Expiration Date', 'Issue Date', 'Date of Birth',
-      'Unique Document Identifier', 'Document Issue Timestamp', 'Compliance Type', 'Issue Type',
-      'Street Address', 'City', 'State', 'ZIP Code', 'Gender', 'Height', 'Weight',
-      'Eye Color', 'Hair Color', 'License Class', 'Restriction Codes', 'Endorsement Codes', 'Country',
-      'Inventory Control Number', 'Optional Tracking Field',
-      'Jurisdiction-Specific Field A', 'Jurisdiction-Specific Field B', 'Jurisdiction-Specific Field C', 'Jurisdiction-Specific Field D'
-    ];
-    
-    allExpectedFields.forEach(field => {
-      data[field] = 'N/A';
-    });
-
     // Find all code positions
     const codes = Object.keys(fieldMappings).sort((a, b) => b.length - a.length);
     const codeRegex = new RegExp(codes.join('|'), 'g');
@@ -258,12 +243,11 @@ const App: React.FC = () => {
     const text = e.target.value;
     setBarcodeText(text);
     
-    // Clear all parsed data first
-    setParsedData({});
-    
     if (text.trim()) {
       const parsed = parseBarcode(text);
       setParsedData(parsed);
+    } else {
+      setParsedData({});
     }
   };
 
@@ -484,16 +468,16 @@ const App: React.FC = () => {
                     <div className="result-item" key={field.key}>
                       <span className="label">{field.label}:</span>
                       <span className="value">
-                        {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : '' :
-                         field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : '') :
-                         field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : '') :
-                         field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : '') :
-                         field.key === 'Date of Birth' ? (parsedData['Date of Birth'] ? formatDate(parsedData['Date of Birth']) : '') :
-                         field.key === 'Issue Date' ? (parsedData['Issue Date'] ? formatDate(parsedData['Issue Date']) : '') :
-                         field.key === 'Expiration Date' ? (parsedData['Expiration Date'] ? formatDate(parsedData['Expiration Date']) : '') :
-                         field.key === 'Eye Color' ? (parsedData['Eye Color'] ? (eyeColorMap[parsedData['Eye Color'].toUpperCase()] || parsedData['Eye Color']) : '') :
-                         field.key === 'Hair Color' ? (parsedData['Hair Color'] ? (hairColorMap[parsedData['Hair Color'].toUpperCase()] || parsedData['Hair Color']) : '') :
-                         parsedData[field.key] || ''}
+                        {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : 'N/A' :
+                         field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : 'N/A') :
+                         field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : 'N/A') :
+                         field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : 'N/A') :
+                         field.key === 'Date of Birth' ? (parsedData['Date of Birth'] ? formatDate(parsedData['Date of Birth']) : 'N/A') :
+                         field.key === 'Issue Date' ? (parsedData['Issue Date'] ? formatDate(parsedData['Issue Date']) : 'N/A') :
+                         field.key === 'Expiration Date' ? (parsedData['Expiration Date'] ? formatDate(parsedData['Expiration Date']) : 'N/A') :
+                         field.key === 'Eye Color' ? (parsedData['Eye Color'] ? (eyeColorMap[parsedData['Eye Color'].toUpperCase()] || parsedData['Eye Color']) : 'N/A') :
+                         field.key === 'Hair Color' ? (parsedData['Hair Color'] ? (hairColorMap[parsedData['Hair Color'].toUpperCase()] || parsedData['Hair Color']) : 'N/A') :
+                         parsedData[field.key] || 'N/A'}
                       </span>
                     </div>
                   ))}
@@ -505,16 +489,16 @@ const App: React.FC = () => {
                       <div className="result-item" key={field.key}>
                         <span className="label">{field.label}:</span>
                         <span className="value">
-                          {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : '' :
-                           field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : '') :
-                           field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : '') :
-                           field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : '') :
-                           field.key === 'Date of Birth' ? (parsedData['Date of Birth'] ? formatDate(parsedData['Date of Birth']) : '') :
-                           field.key === 'Issue Date' ? (parsedData['Issue Date'] ? formatDate(parsedData['Issue Date']) : '') :
-                           field.key === 'Expiration Date' ? (parsedData['Expiration Date'] ? formatDate(parsedData['Expiration Date']) : '') :
-                           field.key === 'Eye Color' ? (parsedData['Eye Color'] ? (eyeColorMap[parsedData['Eye Color'].toUpperCase()] || parsedData['Eye Color']) : '') :
-                           field.key === 'Hair Color' ? (parsedData['Hair Color'] ? (hairColorMap[parsedData['Hair Color'].toUpperCase()] || parsedData['Hair Color']) : '') :
-                           parsedData[field.key] || ''}
+                          {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : 'N/A' :
+                           field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : 'N/A') :
+                           field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : 'N/A') :
+                           field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : 'N/A') :
+                           field.key === 'Date of Birth' ? (parsedData['Date of Birth'] ? formatDate(parsedData['Date of Birth']) : 'N/A') :
+                           field.key === 'Issue Date' ? (parsedData['Issue Date'] ? formatDate(parsedData['Issue Date']) : 'N/A') :
+                           field.key === 'Expiration Date' ? (parsedData['Expiration Date'] ? formatDate(parsedData['Expiration Date']) : 'N/A') :
+                           field.key === 'Eye Color' ? (parsedData['Eye Color'] ? (eyeColorMap[parsedData['Eye Color'].toUpperCase()] || parsedData['Eye Color']) : 'N/A') :
+                           field.key === 'Hair Color' ? (parsedData['Hair Color'] ? (hairColorMap[parsedData['Hair Color'].toUpperCase()] || parsedData['Hair Color']) : 'N/A') :
+                           parsedData[field.key] || 'N/A'}
                         </span>
                       </div>
                     ))}
