@@ -54,75 +54,60 @@ const App: React.FC = () => {
   // Add debounce refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Optimized focus management for tablet
-  const focusInput = useCallback(() => {
-    if (inputRef.current && nav === 'scan') {
-      // Clear any existing focus timeout
-      if (focusTimeoutRef.current) {
-        clearTimeout(focusTimeoutRef.current);
-      }
-      
-      // Use a shorter timeout for tablet responsiveness
-      focusTimeoutRef.current = setTimeout(() => {
-        if (inputRef.current && nav === 'scan') {
-          inputRef.current.focus();
-          // Force focus on mobile/tablet
-          inputRef.current.click();
-        }
-      }, 50);
-    }
-  }, [nav]);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Enhanced focus management for tablet
   useEffect(() => {
+    const focusInput = () => {
+      if (inputRef.current && nav === 'scan') {
+        inputRef.current.focus();
+      }
+    };
+
     // Focus on mount and when switching to scan tab
     focusInput();
 
-    // Focus on any click/touch anywhere on the page
-    const handleClick = (e: Event) => {
-      // Don't refocus if clicking on the input itself or navigation
-      const target = e.target as HTMLElement;
-      if (target.closest('.NavOptions') || target.closest('#barcode-input')) {
-        return;
+    // Enhanced focus on any click/touch anywhere on the page
+    const handleClick = () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
       }
-      focusInput();
+      focusTimeoutRef.current = setTimeout(focusInput, 50);
     };
 
-    // Focus on window focus (when switching back to tab)
+    // Enhanced focus on window focus (when switching back to tab)
     const handleWindowFocus = () => {
-      focusInput();
-    };
-
-    // Focus on visibility change (when tab becomes visible)
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        focusInput();
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
       }
+      focusTimeoutRef.current = setTimeout(focusInput, 100);
     };
 
-    // Focus on touch events for tablet
-    const handleTouchStart = () => {
-      focusInput();
+    // Focus on visibility change (when switching tabs)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && nav === 'scan') {
+        if (focusTimeoutRef.current) {
+          clearTimeout(focusTimeoutRef.current);
+        }
+        focusTimeoutRef.current = setTimeout(focusInput, 200);
+      }
     };
 
     document.addEventListener('click', handleClick);
-    document.addEventListener('touchstart', handleTouchStart);
     window.addEventListener('focus', handleWindowFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       document.removeEventListener('click', handleClick);
-      document.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (focusTimeoutRef.current) {
         clearTimeout(focusTimeoutRef.current);
       }
     };
-  }, [focusInput]);
+  }, [nav]);
 
   // Optimized barcode parsing with memoization
   const parseBarcode = useCallback((text: string): ParsedData => {
@@ -209,7 +194,7 @@ const App: React.FC = () => {
     return !invalids.includes(part.trim().toUpperCase());
   }, []);
 
-  // Improved Full Name logic with memoization
+  // Optimized Full Name logic with memoization
   const getFullName = useMemo(() => {
     // Prefer DAA (Full Name) if present and valid
     if (parsedData['Full Name'] && isValidNamePart(parsedData['Full Name'])) {
@@ -221,7 +206,6 @@ const App: React.FC = () => {
     if (first && last) return capitalizeName(`${first} ${last}`);
     if (first) return capitalizeName(first);
     if (last) return capitalizeName(last);
-    // Optionally, include valid prefix/suffix/middle if you want, but only if they're not junk
     return '';
   }, [parsedData, isValidNamePart, capitalizeName]);
 
@@ -292,7 +276,7 @@ const App: React.FC = () => {
     }
   }, [historySort, fetchHistory]);
 
-  // Debounced save function with shorter timeout for tablet
+  // Debounced save function
   const debouncedSave = useCallback((data: ParsedData) => {
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -304,11 +288,11 @@ const App: React.FC = () => {
     
     // Only save if this is a complete scan and the data has actually changed
     if (isCompleteScan(data) && dataHash !== lastSavedDataRef.current) {
-      // Set a timeout to save after 500ms for faster tablet response
+      // Set a timeout to save after 1 second of no changes
       saveTimeoutRef.current = setTimeout(() => {
         saveScan(data);
         lastSavedDataRef.current = dataHash;
-      }, 500); // Reduced from 1000ms to 500ms for tablet
+      }, 1000); // Wait 1 second after last change
     }
   }, [isCompleteScan, getDataHash, saveScan]);
 
@@ -331,7 +315,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Optimized format functions with memoization
+  // Optimized formatting functions with memoization
   const formatDate = useCallback((dateStr: string): string => {
     if (!dateStr || dateStr === 'NONE') return 'N/A';
     
@@ -437,7 +421,7 @@ const App: React.FC = () => {
     } catch (err) {
       alert('Failed to delete record.');
     }
-  }, [fetchHistory, historySort]);
+  }, [historySort, fetchHistory]);
 
   // Delete all scans
   const deleteAllScans = useCallback(async () => {
@@ -453,7 +437,7 @@ const App: React.FC = () => {
     } catch (err) {
       alert('Failed to delete all records.');
     }
-  }, [fetchHistory, historySort]);
+  }, [historySort, fetchHistory]);
 
   return (
     <div className="AppLayout">
@@ -481,7 +465,7 @@ const App: React.FC = () => {
               />
             </div>
             <div className="results-section">
-              <div className="results-grid">
+              <div className="results-grid-compact">
                 <div className="result-group" key={INFO_FIELDS[0].group}>
                   {/* Title with Full Name and Age - always visible */}
                   <div className="person-title">
