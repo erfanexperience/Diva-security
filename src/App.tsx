@@ -50,12 +50,10 @@ const App: React.FC = () => {
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
-  const [isClearing, setIsClearing] = useState(false);
   
   // Add debounce refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>('');
-  const lastBarcodeTextRef = useRef<string>('');
 
   // Focus management - keep input focused always
   useEffect(() => {
@@ -245,29 +243,12 @@ const App: React.FC = () => {
     const text = e.target.value;
     setBarcodeText(text);
     
+    // Clear all parsed data immediately when input changes
+    setParsedData({});
+    
     if (text.trim()) {
-      // Check if this is a new scan (different from last scan)
-      if (text !== lastBarcodeTextRef.current && Object.keys(parsedData).length > 0) {
-        // Clear previous data first
-        setIsClearing(true);
-        setParsedData({});
-        
-        // Wait a bit, then parse new data
-        setTimeout(() => {
-          const parsed = parseBarcode(text);
-          setParsedData(parsed);
-          setIsClearing(false);
-          lastBarcodeTextRef.current = text;
-        }, 300); // 300ms delay for smooth transition
-      } else {
-        // Same scan or first scan - parse immediately
-        const parsed = parseBarcode(text);
-        setParsedData(parsed);
-        lastBarcodeTextRef.current = text;
-      }
-    } else {
-      setParsedData({});
-      lastBarcodeTextRef.current = '';
+      const parsed = parseBarcode(text);
+      setParsedData(parsed);
     }
   };
 
@@ -476,21 +457,36 @@ const App: React.FC = () => {
               />
             </div>
             <div className="results-section">
-              {isClearing ? (
-                <div className="clearing-indicator">
-                  <div className="clearing-spinner"></div>
-                  <p>Processing new scan...</p>
-                </div>
-              ) : (
-                <div className="results-grid">
-                  <div className="result-group" key={INFO_FIELDS[0].group}>
-                    {/* Title with Full Name and Age - always visible */}
-                    <div className="person-title">
-                      <span className="person-name">{getFullName() !== 'N/A' ? getFullName() : 'Customer Name'}</span>
-                      <span className="person-age">Age: {getAge(parsedData['Date of Birth']) || 'N/A'}</span>
+              <div className="results-grid">
+                <div className="result-group" key={INFO_FIELDS[0].group}>
+                  {/* Title with Full Name and Age - always visible */}
+                  <div className="person-title">
+                    <span className="person-name">{getFullName() !== 'N/A' ? getFullName() : 'Customer Name'}</span>
+                    <span className="person-age">Age: {getAge(parsedData['Date of Birth']) || 'N/A'}</span>
+                  </div>
+                  <h3>{INFO_FIELDS[0].group}</h3>
+                  {INFO_FIELDS[0].fields.map(field => (
+                    <div className="result-item" key={field.key}>
+                      <span className="label">{field.label}:</span>
+                      <span className="value">
+                        {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : '' :
+                         field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : '') :
+                         field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : '') :
+                         field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : '') :
+                         field.key === 'Date of Birth' ? (parsedData['Date of Birth'] ? formatDate(parsedData['Date of Birth']) : '') :
+                         field.key === 'Issue Date' ? (parsedData['Issue Date'] ? formatDate(parsedData['Issue Date']) : '') :
+                         field.key === 'Expiration Date' ? (parsedData['Expiration Date'] ? formatDate(parsedData['Expiration Date']) : '') :
+                         field.key === 'Eye Color' ? (parsedData['Eye Color'] ? (eyeColorMap[parsedData['Eye Color'].toUpperCase()] || parsedData['Eye Color']) : '') :
+                         field.key === 'Hair Color' ? (parsedData['Hair Color'] ? (hairColorMap[parsedData['Hair Color'].toUpperCase()] || parsedData['Hair Color']) : '') :
+                         parsedData[field.key] || ''}
+                      </span>
                     </div>
-                    <h3>{INFO_FIELDS[0].group}</h3>
-                    {INFO_FIELDS[0].fields.map(field => (
+                  ))}
+                </div>
+                {INFO_FIELDS.slice(1).map(group => (
+                  <div className="result-group" key={group.group}>
+                    <h3>{group.group}</h3>
+                    {group.fields.map(field => (
                       <div className="result-item" key={field.key}>
                         <span className="label">{field.label}:</span>
                         <span className="value">
@@ -508,30 +504,8 @@ const App: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  {INFO_FIELDS.slice(1).map(group => (
-                    <div className="result-group" key={group.group}>
-                      <h3>{group.group}</h3>
-                      {group.fields.map(field => (
-                        <div className="result-item" key={field.key}>
-                          <span className="label">{field.label}:</span>
-                          <span className="value">
-                            {field.key === 'Full Name' ? getFullName() !== 'N/A' ? getFullName() : '' :
-                             field.key === 'Height' ? (parsedData['Height'] ? formatHeight(parsedData['Height']) : '') :
-                             field.key === 'ZIP Code' ? (parsedData['ZIP Code'] ? formatZip(parsedData['ZIP Code']) : '') :
-                             field.key === 'Gender' ? (parsedData['Gender'] ? formatGender(parsedData['Gender']) : '') :
-                             field.key === 'Date of Birth' ? (parsedData['Date of Birth'] ? formatDate(parsedData['Date of Birth']) : '') :
-                             field.key === 'Issue Date' ? (parsedData['Issue Date'] ? formatDate(parsedData['Issue Date']) : '') :
-                             field.key === 'Expiration Date' ? (parsedData['Expiration Date'] ? formatDate(parsedData['Expiration Date']) : '') :
-                             field.key === 'Eye Color' ? (parsedData['Eye Color'] ? (eyeColorMap[parsedData['Eye Color'].toUpperCase()] || parsedData['Eye Color']) : '') :
-                             field.key === 'Hair Color' ? (parsedData['Hair Color'] ? (hairColorMap[parsedData['Hair Color'].toUpperCase()] || parsedData['Hair Color']) : '') :
-                             parsedData[field.key] || ''}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           </div>
         )}
