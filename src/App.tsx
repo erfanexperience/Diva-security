@@ -50,7 +50,6 @@ const App: React.FC = () => {
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
-  const [isClearing, setIsClearing] = useState(false);
   
   // Add debounce refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -243,28 +242,15 @@ const App: React.FC = () => {
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
-  };
-
-  // Handle parsing and clearing with proper timing
-  useEffect(() => {
-    if (barcodeText.trim()) {
-      // Clear all fields first and show clearing state
-      setIsClearing(true);
-      setParsedData({});
-      
-      // Use setTimeout to ensure clearing happens before new data
-      const timer = setTimeout(() => {
-        const parsed = parseBarcode(barcodeText);
-        setParsedData(parsed);
-        setIsClearing(false);
-      }, 50); // Small delay to make clearing visible
-      
-      return () => clearTimeout(timer);
-    } else {
-      setParsedData({});
-      setIsClearing(false);
+    
+    // Clear all parsed data first
+    setParsedData({});
+    
+    if (text.trim()) {
+      const parsed = parseBarcode(text);
+      setParsedData(parsed);
     }
-  }, [barcodeText]);
+  };
 
   // Fetch history from backend
   const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
@@ -471,11 +457,6 @@ const App: React.FC = () => {
               />
             </div>
             <div className="results-section">
-              {isClearing && (
-                <div className="clearing-indicator">
-                  <div className="clearing-text">Processing new scan...</div>
-                </div>
-              )}
               <div className="results-grid">
                 <div className="result-group" key={INFO_FIELDS[0].group}>
                   {/* Title with Full Name and Age - always visible */}
