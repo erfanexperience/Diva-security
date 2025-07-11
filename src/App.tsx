@@ -64,7 +64,7 @@ const App: React.FC = () => {
     const checkDevice = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
-      const isTabletDevice = width >= 768 && width <= 1024 || height >= 768 && height <= 1024;
+      const isTabletDevice = (width >= 768 && width <= 1024) || (height >= 768 && height <= 1024);
       setIsTablet(isTabletDevice);
     };
 
