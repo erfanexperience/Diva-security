@@ -55,6 +55,7 @@ const App: React.FC = () => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>('');
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const parseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -243,15 +244,27 @@ const App: React.FC = () => {
     return sortedKeys.map(key => `${key}:${data[key]}`).join('|');
   }, []);
 
-  // Optimized text change handler
+  // Optimized text change handler with complete data clearing
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
+    
+    // Clear any existing parse timeout
+    if (parseTimeoutRef.current) {
+      clearTimeout(parseTimeoutRef.current);
+    }
+    
+    // Clear previous data immediately when text changes
+    setParsedData({});
     setBarcodeText(text);
     
     if (text.trim()) {
-      const parsed = parseBarcode(text);
-      setParsedData(parsed);
+      // Parse new data after a brief delay to ensure UI updates
+      parseTimeoutRef.current = setTimeout(() => {
+        const parsed = parseBarcode(text);
+        setParsedData(parsed);
+      }, 150);
     } else {
+      // If text is empty, ensure data is cleared
       setParsedData({});
     }
   }, [parseBarcode]);
@@ -311,6 +324,9 @@ const App: React.FC = () => {
       }
       if (focusTimeoutRef.current) {
         clearTimeout(focusTimeoutRef.current);
+      }
+      if (parseTimeoutRef.current) {
+        clearTimeout(parseTimeoutRef.current);
       }
     };
   }, []);
@@ -459,6 +475,12 @@ const App: React.FC = () => {
                 ref={inputRef}
                 value={barcodeText}
                 onChange={handleTextChange}
+                onFocus={() => {
+                  // Clear data when input is focused (new scan starting)
+                  if (!barcodeText.trim()) {
+                    setParsedData({});
+                  }
+                }}
                 placeholder="Paste your barcode text here..."
                 className="barcode-input"
                 rows={4}

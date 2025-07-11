@@ -61,7 +61,7 @@ body {
   cursor: pointer;
   border-left: 4px solid transparent;
   transition: background 0.2s, border 0.2s, color 0.2s;
-}
+  }
 .NavOptions li.active, .NavOptions li:hover {
   background: #f3f4f6;
   color: #667eea;
@@ -199,7 +199,7 @@ body {
     min-width: 0;
     min-height: 200px;
     padding: 1rem 0.7rem;
-  }
+}
   .result-item {
     padding: 0.4rem 0;
     font-size: 0.95rem;
@@ -260,7 +260,7 @@ body {
     font-size: 0.95rem;
     border-left: none;
     border-bottom: 3px solid transparent;
-  }
+}
   .NavOptions li.active, .NavOptions li:hover {
     background: #f3f4f6;
     color: #667eea;
@@ -367,7 +367,7 @@ body {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #e0e7ef 0%, #b6c6e3 100%);
-}
+  }
 .LoginForm {
   background: #fff;
   border-radius: 18px;
