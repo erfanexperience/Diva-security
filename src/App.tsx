@@ -50,6 +50,7 @@ const App: React.FC = () => {
   const [historySort, setHistorySort] = useState<'asc' | 'desc'>('desc');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
+  const [isTablet, setIsTablet] = useState(false);
   
   // Add debounce refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -58,47 +59,73 @@ const App: React.FC = () => {
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Detect device type and screen dimensions
+  useEffect(() => {
+    const checkDevice = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const isTabletDevice = width >= 768 && width <= 1024 || height >= 768 && height <= 1024;
+      setIsTablet(isTabletDevice);
+    };
+
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
+
   // Enhanced focus management for tablets
   useEffect(() => {
     const focusInput = () => {
       if (inputRef.current && nav === 'scan') {
-        // Clear any existing focus timeout
-        if (focusTimeoutRef.current) {
-          clearTimeout(focusTimeoutRef.current);
-        }
-        
-        // Use a longer delay for tablets to ensure proper focus
-        focusTimeoutRef.current = setTimeout(() => {
+        // Use requestAnimationFrame for better performance on tablets
+        requestAnimationFrame(() => {
           if (inputRef.current) {
             inputRef.current.focus();
             // Force focus on tablets
-            inputRef.current.click();
+            if (isTablet) {
+              inputRef.current.click();
+            }
           }
-        }, 100);
+        });
       }
     };
 
     // Focus on mount and when switching to scan tab
     focusInput();
 
-    // Focus on any click/touch anywhere on the page
+    // Enhanced focus on any click/touch anywhere on the page
     const handleClick = (e: Event) => {
-      // Don't refocus if clicking on the input itself or its children
-      if (e.target && inputRef.current && inputRef.current.contains(e.target as Node)) {
+      // Don't refocus if clicking on the input itself or its container
+      const target = e.target as HTMLElement;
+      if (target.closest('.input-section') || target.closest('.barcode-input')) {
         return;
       }
-      setTimeout(focusInput, 0);
+      
+      // Clear any existing focus timeout
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      
+      // Use shorter timeout for tablets
+      const timeout = isTablet ? 100 : 0;
+      focusTimeoutRef.current = setTimeout(focusInput, timeout);
     };
 
-    // Focus on window focus (when switching back to tab)
+    // Enhanced focus on window focus (when switching back to tab)
     const handleWindowFocus = () => {
-      setTimeout(focusInput, 0);
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      focusTimeoutRef.current = setTimeout(focusInput, isTablet ? 200 : 0);
     };
 
-    // Focus on visibility change (when app becomes visible)
+    // Focus on tab visibility change (for tablets)
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        setTimeout(focusInput, 0);
+      if (!document.hidden && nav === 'scan') {
+        if (focusTimeoutRef.current) {
+          clearTimeout(focusTimeoutRef.current);
+        }
+        focusTimeoutRef.current = setTimeout(focusInput, 300);
       }
     };
 
@@ -114,9 +141,9 @@ const App: React.FC = () => {
         clearTimeout(focusTimeoutRef.current);
       }
     };
-  }, [nav]);
+  }, [nav, isTablet]);
 
-  // Memoized parse function for better performance
+  // Optimized parseBarcode function with memoization
   const parseBarcode = useCallback((text: string): ParsedData => {
     const data: ParsedData = {};
     const fieldMappings: { [key: string]: string } = {
@@ -201,7 +228,7 @@ const App: React.FC = () => {
     return !invalids.includes(part.trim().toUpperCase());
   }, []);
 
-  // Improved Full Name logic - memoized for performance
+  // Improved Full Name logic with memoization
   const getFullName = useMemo(() => {
     // Prefer DAA (Full Name) if present and valid
     if (parsedData['Full Name'] && isValidNamePart(parsedData['Full Name'])) {
@@ -251,27 +278,31 @@ const App: React.FC = () => {
     return sortedKeys.map(key => `${key}:${data[key]}`).join('|');
   }, []);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  // Optimized text change handler
+  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     setBarcodeText(text);
     
     if (text.trim()) {
-      const parsed = parseBarcode(text);
-      setParsedData(parsed);
+      // Use requestAnimationFrame for better performance on tablets
+      requestAnimationFrame(() => {
+        const parsed = parseBarcode(text);
+        setParsedData(parsed);
+      });
     } else {
       setParsedData({});
     }
-  };
+  }, [parseBarcode]);
 
   // Fetch history from backend
-  const fetchHistory = async (sort: 'asc' | 'desc' = 'desc') => {
+  const fetchHistory = useCallback(async (sort: 'asc' | 'desc' = 'desc') => {
     try {
       const res = await axios.get(`${BACKEND_URL}/api/history?sort=${sort}`);
       setHistory(res.data);
     } catch (err) {
       setHistory([]);
     }
-  };
+  }, []);
 
   // Save scan to backend
   const saveScan = useCallback(async (data: any) => {
@@ -281,9 +312,9 @@ const App: React.FC = () => {
     } catch (err) {
       // handle error
     }
-  }, [historySort]);
+  }, [historySort, fetchHistory]);
 
-  // Debounced save function
+  // Debounced save function with optimized timing for tablets
   const debouncedSave = useCallback((data: ParsedData) => {
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -295,13 +326,14 @@ const App: React.FC = () => {
     
     // Only save if this is a complete scan and the data has actually changed
     if (isCompleteScan(data) && dataHash !== lastSavedDataRef.current) {
-      // Set a timeout to save after 1 second of no changes
+      // Use shorter timeout for tablets for faster response
+      const timeout = isTablet ? 500 : 1000;
       saveTimeoutRef.current = setTimeout(() => {
         saveScan(data);
         lastSavedDataRef.current = dataHash;
-      }, 1000); // Wait 1 second after last change
+      }, timeout);
     }
-  }, [isCompleteScan, getDataHash, saveScan]);
+  }, [isCompleteScan, getDataHash, saveScan, isTablet]);
 
   // Watch for changes in parsedData and trigger debounced save
   useEffect(() => {
@@ -310,7 +342,7 @@ const App: React.FC = () => {
     }
   }, [parsedData, debouncedSave]);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -322,7 +354,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Memoized formatting functions for better performance
+  // Optimized format functions with memoization
   const formatDate = useCallback((dateStr: string): string => {
     if (!dateStr || dateStr === 'NONE') return 'N/A';
     
@@ -417,10 +449,10 @@ const App: React.FC = () => {
     if (nav === 'history') {
       fetchHistory(historySort);
     }
-  }, [nav, historySort]);
+  }, [nav, historySort, fetchHistory]);
 
   // Delete a scan
-  const deleteScan = async (id: number) => {
+  const deleteScan = useCallback(async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this record?')) return;
     try {
       await axios.delete(`${BACKEND_URL}/api/history/${id}`);
@@ -428,10 +460,10 @@ const App: React.FC = () => {
     } catch (err) {
       alert('Failed to delete record.');
     }
-  };
+  }, [fetchHistory, historySort]);
 
   // Delete all scans
-  const deleteAllScans = async () => {
+  const deleteAllScans = useCallback(async () => {
     const password = window.prompt('Enter password to delete all history:');
     if (password !== PASSWORD) {
       alert('Incorrect password.');
@@ -444,11 +476,11 @@ const App: React.FC = () => {
     } catch (err) {
       alert('Failed to delete all records.');
     }
-  };
+  }, [fetchHistory, historySort]);
 
   return (
-    <div className="AppLayout">
-      <nav className="NavMenu">
+    <div className="AppLayout" style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      <nav className="NavMenu" style={{ height: '10vh', minHeight: '60px' }}>
         <div className="NavLogo"><img src={logo} alt="Logo" /></div>
         <ul className="NavOptions">
           {NAV_OPTIONS.map(opt => (
@@ -456,10 +488,10 @@ const App: React.FC = () => {
           ))}
         </ul>
       </nav>
-      <main className="MainContent">
+      <main className="MainContent" style={{ height: '90vh', overflow: 'hidden' }}>
         {nav === 'scan' && (
-          <div className="ScanContainer">
-            <div className="input-section">
+          <div className="ScanContainer" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div className="input-section" style={{ flex: '0 0 auto', padding: '1rem' }}>
               <label htmlFor="barcode-input" className="input-label">Barcode Text:</label>
               <textarea
                 id="barcode-input"
@@ -468,11 +500,12 @@ const App: React.FC = () => {
                 onChange={handleTextChange}
                 placeholder="Paste your barcode text here..."
                 className="barcode-input"
-                rows={4}
+                rows={isTablet ? 3 : 4}
+                style={{ fontSize: isTablet ? '16px' : '14px' }}
               />
             </div>
-            <div className="results-section">
-              <div className="results-grid">
+            <div className="results-section" style={{ flex: '1', overflow: 'auto', padding: '1rem' }}>
+              <div className="results-grid" style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
                 <div className="result-group" key={INFO_FIELDS[0].group}>
                   {/* Title with Full Name and Age - always visible */}
                   <div className="person-title">
@@ -525,9 +558,9 @@ const App: React.FC = () => {
           </div>
         )}
         {nav === 'history' && (
-          <div className="HistoryContainer">
+          <div className="HistoryContainer" style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <h2>History</h2>
-            <div className="history-controls">
+            <div className="history-controls" style={{ flex: '0 0 auto', padding: '1rem' }}>
               <label>Sort by date: </label>
               <select value={historySort} onChange={e => setHistorySort(e.target.value as 'asc' | 'desc')}>
                 <option value="desc">Newest First</option>
@@ -535,7 +568,7 @@ const App: React.FC = () => {
               </select>
               <button className="history-action-btn" style={{marginLeft: '2rem'}} onClick={deleteAllScans}>Delete All</button>
             </div>
-            <div className="history-table-wrapper">
+            <div className="history-table-wrapper" style={{ flex: '1', overflow: 'auto' }}>
               <table className="history-table">
                 <thead>
                   <tr>
